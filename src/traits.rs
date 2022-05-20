@@ -17,32 +17,68 @@ pub trait VolumeIdx: Sized {
         Some([x, y, z])
     }
 }
-
-pub trait RelocatableVolume: Volume {
-    fn mut_bounding_box(&mut self) -> &mut BoundingBox;
-}
-
-pub trait ResizableVolume
-where
-    Self: RelocatableVolume,
-    <Self as Volume>::Item: Copy,
-{
-    fn resize(&mut self, new_bounds: BoundingBox, filling: <Self as Volume>::Item) -> Self;
-}
-
 pub trait Volume: Sized {
     type Item;
 
-    /// Get immutable reference to the item at the given `idx`. Returns [`None`] if the index was invalid (e.g., out of bounds).
-    fn get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item>;
+    /// Get a reference to the item at the given index in localspace.
+    /// Localspace indices cannot be negative (thus the index is in `u64`s).
+    /// Implementors must make sure that this function returns [`None`] if the index is out of bounds.
+    ///
+    /// This function is used by [`Volume::get`], which internally (by default) uses the volume's bounding box's minimum
+    /// to convert the index to localspace (index - bounding box minimum). This is assumed to be the case for a type implementing volume.
+    /// If this for whatever reason is not the case for your volume (which is already a sign of problems), then override [`Volume::get`]
+    /// to the appropriate implementation.
+    fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item>;
 
-    /// Get mutable reference to the item at the given `idx`. Returns [`None`] if the index was invalid (e.g., out of bounds).
-    fn get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item>;
+    /// Get a mutable reference to the item at the given index in localspace.
+    /// Localspace indices cannot be negative (thus the index is in `u64`s).
+    /// Implementors must make sure that this function returns [`None`] if the index is out of bounds.
+    ///
+    /// This function is used by [`Volume::get_mut`], which internally (by default) uses the volume's bounding box's minimum
+    /// to convert the index to localspace (index - bounding box minimum). This is assumed to be the case for a type implementing volume.
+    /// If this for whatever reason is not the case for your volume (which is already a sign of problems), then override [`Volume::get_mut`]
+    /// to the appropriate implementation.
+    fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item>;
 
+    /// Get a bounding box representing this volume's bounds. Implementors must assume that any position within the bounding box is a valid worldspace index
+    /// so that [`Volume::get`] and [`Volume::get_mut`] do not return [`None`] when given the index.
+    ///
+    /// Much like an iterator's size hint, unsafe code SHOULD NOT rely on [`Volume::bounding_box`] for anything potentially bad.
     fn bounding_box(&self) -> BoundingBox;
 
-    /// Swap the item at the given `idx` with the provided `item`, returning the previous item.
+    /// Converts a worldspace index to a localspace index by using this volume's bounding box's minimum.
+    /// Returns [`None`] if the conversion was unsucessful (e.g., if the index is less than the bounding box's minimum, making it OOB).
+    #[inline(always)]
+    fn to_ls<Idx: VolumeIdx>(&self, idx: Idx) -> Option<[u64; 3]> {
+        let (x, y, z) = idx.unpack::<i64>()?;
+        let min = self.bounding_box().min();
+        let ls_idx = util::sub_ivec3([x, y, z], min);
+
+        util::cast_ivec3(ls_idx)
+    }
+
+    /// Get a reference to the item at the given worldspace index. Returns [`None`] if the index was invalid (e.g., out of bounds).
+    /// Uses [`Volume::to_ls`] internally to convert the worldspace index to a localspace index, after which the implementor must handle it.
+    #[inline(always)]
+    fn get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
+        let ls_idx = self.to_ls(idx)?;
+
+        self.ls_get(ls_idx)
+    }
+
+    /// Get a mutable reference to the item at the given worldpace index. Returns [`None`] if the index was invalid (e.g., out of bounds).
+    /// Uses [`Volume::to_ls`] internally to convert the worldspace index to a localspace index, after which the implementor must handle it.
+    #[inline(always)]
+    fn get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+        let ls_idx = self.to_ls(idx)?;
+
+        self.ls_get_mut(ls_idx)
+    }
+
+    /// Swap the item at the given worldspace index with the provided `item`, returning the previous item.
     /// Returns [`None`] if the index was invalid (e.g., out of bounds).
+    ///
+    /// Relies on [`Volume::get_mut`] internally.
     #[inline(always)]
     fn swap<Idx: VolumeIdx>(&mut self, idx: Idx, item: Self::Item) -> Option<Self::Item> {
         let slot = self.get_mut(idx)?;
@@ -50,16 +86,19 @@ pub trait Volume: Sized {
         Some(std::mem::replace(slot, item))
     }
 
+    /// Checks if this volume contains the worldspace index.
     #[inline(always)]
     fn contains<Idx: VolumeIdx>(&self, idx: Idx) -> bool {
         self.bounding_box().contains::<Idx>(idx)
     }
 
+    /// Iterate over the worldspace indices of this volume.
     #[inline(always)]
     fn iter_indices(&self) -> BoundingBoxIterator {
         self.bounding_box().into_iter()
     }
 
+    /// Iterate over the elements in this volume.
     #[inline(always)]
     fn iter(&self) -> VolumeIterator<'_, Self> {
         VolumeIterator {

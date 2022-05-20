@@ -2,8 +2,6 @@ use crate::prelude::*;
 use crate::util;
 
 pub(crate) mod heap_volume {
-    use num_traits::PrimInt;
-
     use super::*;
 
     type HeapVolumeStorage<T> = Box<[Box<[Box<[T]>]>]>;
@@ -13,57 +11,12 @@ pub(crate) mod heap_volume {
         bounds: BoundingBox,
     }
 
-    pub struct HeapVolumeBuilder<T> {
-        bounding_box: Option<BoundingBox>,
-        filling: T,
-    }
-
-    impl<T: Clone> HeapVolumeBuilder<T> {
-        pub fn new(filling: T) -> Self {
-            Self {
-                bounding_box: None,
-                filling,
-            }
-        }
-
-        pub fn with_dimensions(mut self, dimensions: [usize; 3]) -> Self {
-            self.bounding_box = Some(BoundingBox::new([0, 0, 0], dimensions));
-            self
-        }
-
-        pub fn with_position<N: PrimInt>(mut self, position: [N; 3]) -> Self {
-            self.bounding_box = Some(BoundingBox::new(
-                util::cast_ivec3::<i64, _>(position).unwrap(),
-                util::sum_ivec3(
-                    util::cast_ivec3::<i64, _>(position).unwrap(),
-                    self.bounding_box
-                        .map(|b| b.dimensions())
-                        .unwrap_or([0i64, 0, 0]),
-                ),
-            ));
-
-            self
-        }
-
-        pub fn with_bounds(self, pos1: [i64; 3], pos2: [i64; 3]) -> Self {
-            self.with_bounding_box(BoundingBox::new(pos1, pos2))
-        }
-
-        pub fn with_bounding_box(mut self, bounding_box: BoundingBox) -> Self {
-            self.bounding_box = Some(bounding_box);
-            self
-        }
-
-        pub fn build(self) -> HeapVolume<T> {
-            HeapVolume::clone_fill(self.bounding_box.unwrap(), self.filling)
-        }
-    }
-
     impl_indexing!(T, HeapVolume<T>);
     impl_debug!(T, HeapVolume<T>);
 
     impl<T: Clone> HeapVolume<T> {
-        fn clone_fill(bounds: BoundingBox, item: T) -> Self {
+        #[inline(always)]
+        pub fn new(item: T, bounds: BoundingBox) -> Self {
             use util::boxed_slice;
 
             let [x, y, z] = util::cast_ivec3(bounds.dimensions()).unwrap();
@@ -72,6 +25,14 @@ pub(crate) mod heap_volume {
                 inner: boxed_slice(boxed_slice(boxed_slice(item, z), y), x),
                 bounds,
             }
+        }
+    }
+
+    impl<T: PartialEq> std::cmp::PartialEq for HeapVolume<T> {
+        #[inline(always)]
+        fn eq(&self, other: &Self) -> bool {
+            self.bounding_box() == other.bounding_box()
+                && !(self.iter().zip(other.iter()).any(|(a, b)| a != b))
         }
     }
 
@@ -88,17 +49,17 @@ pub(crate) mod heap_volume {
         type Item = T;
 
         #[inline]
-        fn get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
-            let (x, y, z) = idx.unpack::<usize>()?;
+        fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item> {
+            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
 
-            Some(&self.inner[x][y][z])
+            self.inner.get(x)?.get(y)?.get(z)
         }
 
         #[inline]
-        fn get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
-            let (x, y, z) = idx.unpack::<usize>()?;
+        fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item> {
+            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
 
-            Some(&mut self.inner[x][y][z])
+            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }
 
         #[inline]
@@ -219,14 +180,14 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T> Volume for StackVolume<X, Y, Z, T> {
         type Item = T;
 
-        fn get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
-            let (x, y, z) = idx.unpack::<usize>()?;
+        fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item> {
+            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
 
             self.inner.get(x)?.get(y)?.get(z)
         }
 
-        fn get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
-            let (x, y, z) = idx.unpack::<usize>()?;
+        fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item> {
+            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
 
             self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }

@@ -32,6 +32,29 @@ mod nalgebra_support {
             ))
         }
     }
+
+    #[derive(thiserror::Error, Debug)]
+    #[error("could not convert vector range to valid bounding box")]
+    pub struct VecRangeConversionError;
+
+    impl<N: PrimInt> TryFrom<std::ops::Range<na::Vector3<N>>> for BoundingBox {
+        type Error = VecRangeConversionError;
+
+        #[inline(always)]
+        fn try_from(range: std::ops::Range<na::Vector3<N>>) -> Result<Self, Self::Error> {
+            let pos1 = range.start.to_arr::<i64>().ok_or(VecRangeConversionError)?;
+            let pos2 = range.end.to_arr::<i64>().ok_or(VecRangeConversionError)?;
+
+            Ok(BoundingBox::new(pos1, pos2))
+        }
+    }
+
+    impl From<BoundingBox> for std::ops::Range<na::Vector3<i64>> {
+        #[inline(always)]
+        fn from(bb: BoundingBox) -> Self {
+            na::Vector3::<i64>::from(bb.min())..na::Vector3::<i64>::from(bb.max())
+        }
+    }
 }
 
 #[cfg(feature = "glam")]

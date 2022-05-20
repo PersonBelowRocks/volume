@@ -20,7 +20,7 @@ impl<N: PrimInt> VolumeIdx for [N; 3] {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BoundingBox {
     min: [i64; 3],
     max: [i64; 3],
@@ -50,6 +50,23 @@ impl BoundingBox {
             min: util::cast_ivec3(min).unwrap(),
             max: util::cast_ivec3(max).unwrap(),
         }
+    }
+
+    /// Construct a new bounding box sitting at the origin (0, 0, 0) and expanding into +X, +Y, +Z. Basically a shorthand for `BoundingBox::new([0, 0, 0], [x, y, z])`
+    /// where x, y, and z not negative.
+    ///
+    /// # Panics
+    /// Panics if any element of `dimensions` is less than 0.
+    /// Panics if any element of `dimensions` cannot be cast to [`i64`]
+    #[inline(always)]
+    pub fn new_origin<N: PrimInt>(dimensions: [N; 3]) -> Self {
+        let [x, y, z]: [i64; 3] = util::cast_ivec3::<i64, _>(dimensions).unwrap();
+
+        assert!(x >= 0);
+        assert!(y >= 0);
+        assert!(z >= 0);
+
+        Self::new([0, 0, 0], [x, y, z])
     }
 
     #[inline(always)]

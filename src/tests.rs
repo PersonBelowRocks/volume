@@ -1,3 +1,18 @@
+use crate::prelude::*;
+
+/// Build an example heap volume of `u8`s with a bounding box of (0, 0, 0) -> (6, 6, 6), filled with `10`.
+/// # Example
+/// ```
+/// use crate::prelude::*;
+///
+/// let vol = example_heap_volume();
+/// assert_eq!(vol.bounding_box(), BoundingBox::new([0, 0, 0], [6, 6, 6]));
+/// vol.iter().map(|v| assert_eq!(v, &10));
+/// ```
+fn example_heap_volume() -> HeapVolume<u8> {
+    HeapVolume::new(10u8, BoundingBox::new([0, 0, 0], [6, 6, 6]))
+}
+
 #[test]
 fn sum_ivec3() {
     use crate::util;
@@ -61,15 +76,15 @@ fn boxed_slice() {
 fn heap_volume_creation() {
     use crate::prelude::*;
 
-    let vol = HeapVolume::filled([3, 3, 3], 80u8);
+    let vol = example_heap_volume();
 
-    for z in 0..3 {
-        for y in 0..3 {
-            for x in 0..3 {
+    for z in 0..6 {
+        for y in 0..6 {
+            for x in 0..6 {
                 let idx = [x, y, z];
 
                 assert!(vol.contains(idx));
-                assert_eq!(vol.get(idx), Some(&80u8));
+                assert_eq!(vol.get(idx), Some(&10u8));
             }
         }
     }
@@ -79,12 +94,12 @@ fn heap_volume_creation() {
 fn heap_volume_iteration() {
     use crate::prelude::*;
 
-    let vol = HeapVolume::filled([3, 3, 3], 80u8);
+    let vol = example_heap_volume();
     let mut idx_iterator = vol.bounding_box().into_iter();
 
-    for z in 0..3i64 {
-        for y in 0..3i64 {
-            for x in 0..3i64 {
+    for z in 0..6i64 {
+        for y in 0..6i64 {
+            for x in 0..6i64 {
                 let idx = [x, y, z];
 
                 assert_eq!(idx_iterator.next(), Some(idx));
@@ -94,7 +109,7 @@ fn heap_volume_iteration() {
 
     assert_eq!(idx_iterator.next(), None);
 
-    let vol = HeapVolume::filled([6, 5, 7], 40u8);
+    let vol = HeapVolume::new(10u8, BoundingBox::new([0, 0, 0], [6, 5, 7]));
     let mut idx_iterator = vol.bounding_box().into_iter();
 
     let mut c = 0;
@@ -111,7 +126,7 @@ fn heap_volume_iteration() {
     #[allow(clippy::while_let_on_iterator)] // bit more explicit this way
     while let Some(val) = vol_iterator.next() {
         c += 1;
-        assert_eq!(val, &40);
+        assert_eq!(val, &10);
     }
 
     assert_eq!(c, vol.bounding_box().capacity());
@@ -123,7 +138,8 @@ fn heap_volume_access() {
 
     const N: u8 = 40;
 
-    let mut vol = HeapVolume::filled([8, 8, 8], N);
+    let mut vol = HeapVolume::new(N, BoundingBox::new([0, 0, 0], [8, 8, 8]));
+
     assert_eq!(vol.get([5i32, 5, 5]), Some(&N));
     assert_eq!(vol.swap([5i32, 5, 5], 80), Some(N));
     assert_eq!(vol.get([5i32, 5, 5]), Some(&80));
@@ -140,4 +156,32 @@ fn heap_volume_access() {
 }
 
 #[test]
-fn heap_volume_bounding_box() {}
+fn heap_volume_unusual_bounds() {
+    let mut vol = HeapVolume::new(10, BoundingBox::new([-9, -9, -9], [-2, -2, -2]));
+
+    assert_eq!(vol.get([0i32, 0, 0]), None);
+    assert_eq!(vol.get([3i32, 3, 3]), None);
+    assert_eq!(vol.get([-4i32, -4, -4]), Some(&10));
+
+    assert_eq!(vol.swap([-4i32, -4, -4], 50), Some(10));
+    assert_eq!(vol.get([-4i32, -4, -4]), Some(&50));
+
+    let mut idx_iterator = vol.iter_indices();
+    let mut c = 0;
+    for z in -9..-2i64 {
+        for y in -9..-2i64 {
+            for x in -9..-2i64 {
+                let idx = idx_iterator.next();
+                c += 1;
+
+                assert_eq!(idx, Some([x, y, z]));
+            }
+        }
+    }
+
+    assert_eq!(idx_iterator.next(), None);
+    assert_eq!(c, vol.bounding_box().capacity());
+
+    assert_eq!(vol.get([-9, -9, -9]), Some(&10));
+    assert_eq!(vol.get([-2, -2, -2]), None);
+}
