@@ -45,3 +45,26 @@ macro_rules! impl_debug {
         }
     };
 }
+
+#[cfg(feature = "nalgebra")]
+/// Implement [`From<std::ops::Range<nalgebra::Vector3<T>>>`] for [`crate::prelude::BoundingBox`]. T should implement [`num_traits::PrimInt`]
+macro_rules! impl_boundingbox_from_vec_range {
+    ($t:ty) => {
+        impl From<std::ops::Range<nalgebra::Vector3<$t>>> for BoundingBox
+        where $t: num_traits::PrimInt
+        {
+            #[inline(always)]
+            fn from(range: std::ops::Range<nalgebra::Vector3<$t>>) -> Self {
+                let pos1 = range.start.to_arr::<i64>().unwrap();
+                let pos2 = range.end.to_arr::<i64>().unwrap();
+
+                BoundingBox::new(pos1, pos2)
+            }
+        }
+    };
+
+    ($t:ty, $($ts:ty),+) => {
+        impl_boundingbox_from_vec_range!($t);
+        impl_boundingbox_from_vec_range!($($ts),+);
+    };
+}

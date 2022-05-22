@@ -16,8 +16,10 @@ pub(crate) mod heap_volume {
 
     impl<T: Clone> HeapVolume<T> {
         #[inline(always)]
-        pub fn new(item: T, bounds: BoundingBox) -> Self {
+        pub fn new(item: T, bounds: impl Into<BoundingBox>) -> Self {
             use util::boxed_slice;
+
+            let bounds: BoundingBox = bounds.into();
 
             let [x, y, z] = util::cast_ivec3(bounds.dimensions()).unwrap();
 

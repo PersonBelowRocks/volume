@@ -185,3 +185,49 @@ fn heap_volume_unusual_bounds() {
     assert_eq!(vol.get([-9, -9, -9]), Some(&10));
     assert_eq!(vol.get([-2, -2, -2]), None);
 }
+
+#[test]
+fn heap_volume_insertion() {
+    let mut vol1 = HeapVolume::new(10, BoundingBox::new_origin([16i32, 16, 16]));
+    let vol2 = HeapVolume::new(20, BoundingBox::new([4i32, 4, 4], [10i32, 10, 10]));
+
+    vol1.insert([0i32, 0, 0], &vol2).unwrap();
+
+    for n in 0..4i32 {
+        assert_eq!(vol1[[n, n, n]], 10);
+    }
+
+    for n in 4..10i32 {
+        assert_eq!(vol1[[n, n, n]], 20);
+    }
+
+    for n in 10..16i32 {
+        assert_eq!(vol1[[n, n, n]], 10);
+    }
+
+    assert_eq!(vol1[[4i32, 4, 4]], 20);
+    assert_eq!(vol1[[9i32, 4, 4]], 20);
+    assert_eq!(vol1[[4i32, 9, 4]], 20);
+    assert_eq!(vol1[[4i32, 4, 9]], 20);
+
+    assert_eq!(vol1[[4i32, 9, 9]], 20);
+    assert_eq!(vol1[[9i32, 9, 4]], 20);
+    assert_eq!(vol1[[9i32, 9, 9]], 20);
+    assert_eq!(vol1[[9i32, 4, 9]], 20);
+}
+
+#[cfg(feature = "nalgebra")]
+#[test]
+fn nalgebra_bounding_box_support() {
+    extern crate nalgebra as na;
+
+    let v1 = na::vector![0, 0, 0];
+    let v2 = na::vector![10, 10, 10];
+
+    let vol = HeapVolume::new(10, v1..v2);
+
+    assert_eq!(
+        vol.bounding_box(),
+        BoundingBox::new([0, 0, 0], [10, 10, 10])
+    );
+}
