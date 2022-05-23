@@ -46,25 +46,45 @@ macro_rules! impl_debug {
     };
 }
 
-#[cfg(feature = "nalgebra")]
-/// Implement [`From<std::ops::Range<nalgebra::Vector3<T>>>`] for [`crate::prelude::BoundingBox`]. T should implement [`num_traits::PrimInt`]
-macro_rules! impl_boundingbox_from_vec_range {
+#[cfg(any(feature = "nalgebra", feature = "glam"))]
+macro_rules! impl_boundingbox_from_volumeidx_range {
     ($t:ty) => {
-        impl From<std::ops::Range<nalgebra::Vector3<$t>>> for BoundingBox
-        where $t: num_traits::PrimInt
+        impl From<std::ops::Range<$t>> for crate::prelude::BoundingBox
+        where
+            $t: crate::prelude::VolumeIdx,
         {
             #[inline(always)]
-            fn from(range: std::ops::Range<nalgebra::Vector3<$t>>) -> Self {
+            fn from(range: std::ops::Range<$t>) -> Self {
                 let pos1 = range.start.to_arr::<i64>().unwrap();
                 let pos2 = range.end.to_arr::<i64>().unwrap();
 
-                BoundingBox::new(pos1, pos2)
+                crate::prelude::BoundingBox::new(pos1, pos2)
             }
         }
     };
+}
+
+#[cfg(feature = "nalgebra")]
+/// Implement [`From<std::ops::Range<nalgebra::Vector3<T>>>`] for [`crate::prelude::BoundingBox`]. T should implement [`num_traits::PrimInt`]
+macro_rules! impl_boundingbox_from_na_vec_range {
+    ($t:ty) => {
+        impl_boundingbox_from_volumeidx_range!(nalgebra::Vector3<$t>);
+    };
 
     ($t:ty, $($ts:ty),+) => {
-        impl_boundingbox_from_vec_range!($t);
-        impl_boundingbox_from_vec_range!($($ts),+);
+        impl_boundingbox_from_na_vec_range!($t);
+        impl_boundingbox_from_na_vec_range!($($ts),+);
+    };
+}
+
+#[cfg(feature = "glam")]
+macro_rules! impl_boundingbox_from_glam_vec_range {
+    ($t:ty) => {
+        impl_boundingbox_from_volumeidx_range!($t);
+    };
+
+    ($t:ty, $($ts:ty),+) => {
+        impl_boundingbox_from_glam_vec_range!($t);
+        impl_boundingbox_from_glam_vec_range!($($ts),+);
     };
 }

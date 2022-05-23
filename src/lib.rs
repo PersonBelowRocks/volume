@@ -33,7 +33,7 @@ mod nalgebra_support {
         }
     }
 
-    impl_boundingbox_from_vec_range!(i8, u8, i16, u16, i32, u32, i64);
+    impl_boundingbox_from_na_vec_range!(i8, u8, i16, u16, i32, u32, i64);
 
     impl From<BoundingBox> for std::ops::Range<na::Vector3<i64>> {
         #[inline(always)]
@@ -74,4 +74,6 @@ mod glam_support {
             ))
         }
     }
+
+    impl_boundingbox_from_glam_vec_range!(glam::IVec3, glam::UVec3);
 }
