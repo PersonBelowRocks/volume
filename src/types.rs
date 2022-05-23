@@ -75,6 +75,8 @@ impl BoundingBox {
         (x as i128) * (y as i128) * (z as i128)
     }
 
+    /// Check if the index is a position inside this bounding box.
+    /// Also returns false if the index could not be unpacked to (i64, i64, i64).
     #[inline(always)]
     pub fn contains<Idx: VolumeIdx>(&self, idx: Idx) -> bool {
         let (x, y, z) = match idx.unpack::<i64>() {
@@ -130,21 +132,29 @@ impl BoundingBox {
         self.min
     }
 
+    /// Length of the X side of this bounding box.
+    /// /// Should not be negative.
     #[inline(always)]
     pub fn x_span(&self) -> i64 {
         i64::abs(self.max[0] - self.min[0])
     }
 
+    /// Length of the Y side of this bounding box.
+    /// /// Should not be negative.
     #[inline(always)]
     pub fn y_span(&self) -> i64 {
         i64::abs(self.max[1] - self.min[1])
     }
 
+    /// Length of the Z side of this bounding box.
+    /// Should not be negative.
     #[inline(always)]
     pub fn z_span(&self) -> i64 {
         i64::abs(self.max[2] - self.min[2])
     }
 
+    /// The bounding box's dimensions, in the form of `[x, y, z]`.
+    /// Equal to [[`BoundingBox::x_span, BoundingBox::y_span, BoundingBox::z_span`]]
     #[inline(always)]
     pub fn dimensions(&self) -> [i64; 3] {
         [self.x_span(), self.y_span(), self.z_span()]
