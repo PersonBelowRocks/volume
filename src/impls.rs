@@ -15,7 +15,7 @@ pub(crate) mod heap_volume {
     impl_debug!(T, HeapVolume<T>);
 
     impl<T: Clone> HeapVolume<T> {
-        #[inline(always)]
+        #[inline]
         pub fn new(item: T, bounds: impl Into<BoundingBox>) -> Self {
             use util::boxed_slice;
 
@@ -31,7 +31,7 @@ pub(crate) mod heap_volume {
     }
 
     impl<T: PartialEq> std::cmp::PartialEq for HeapVolume<T> {
-        #[inline(always)]
+        #[inline]
         fn eq(&self, other: &Self) -> bool {
             self.bounding_box() == other.bounding_box()
                 && !(self.iter().zip(other.iter()).any(|(a, b)| a != b))
@@ -71,7 +71,7 @@ pub(crate) mod heap_volume {
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T> From<[[[T; Z]; Y]; X]> for HeapVolume<T> {
-        #[inline(always)]
+        #[inline]
         fn from(array: [[[T; Z]; Y]; X]) -> Self {
             let data = {
                 array
@@ -109,7 +109,7 @@ pub(crate) mod stack_volume {
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T: Copy> StackVolume<X, Y, Z, T> {
-        #[inline(always)]
+        #[inline]
         pub fn filled(item: T) -> Self {
             Self {
                 inner: [[[item; Z]; Y]; X],
@@ -120,33 +120,25 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T: Copy + Default> Default
         for StackVolume<X, Y, Z, T>
     {
-        #[inline(always)]
+        #[inline]
         fn default() -> Self {
             Self::filled(T::default())
         }
     }
 
-    impl<const X: usize, const Y: usize, const Z: usize, T> StackVolume<X, Y, Z, Option<T>>
-    where
-        Option<T>: Copy,
-    {
-        #[inline(always)]
-        pub fn new_none() -> Self {
-            Self::filled(None)
-        }
-    }
-
-    impl<const X: usize, const Y: usize, const Z: usize, T> From<StackVolumeStorage<X, Y, Z, T>>
+    impl<const X: usize, const Y: usize, const Z: usize, T> From<[[[T; Z]; Y]; X]>
         for StackVolume<X, Y, Z, T>
     {
+        #[inline]
         fn from(arr: StackVolumeStorage<X, Y, Z, T>) -> Self {
             Self { inner: arr }
         }
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T> From<StackVolume<X, Y, Z, T>>
-        for StackVolumeStorage<X, Y, Z, T>
+        for [[[T; Z]; Y]; X]
     {
+        #[inline]
         fn from(vol: StackVolume<X, Y, Z, T>) -> Self {
             vol.inner
         }
@@ -155,7 +147,7 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T> From<StackVolume<X, Y, Z, T>>
         for HeapVolume<T>
     {
-        #[inline(always)]
+        #[inline]
         fn from(vol: StackVolume<X, Y, Z, T>) -> Self {
             Self::from(vol.inner)
         }
@@ -166,6 +158,7 @@ pub(crate) mod stack_volume {
     {
         type Output = <Self as Volume>::Item;
 
+        #[inline]
         fn index(&self, idx: Idx) -> &Self::Output {
             self.get(idx).unwrap()
         }
@@ -174,6 +167,7 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> std::ops::IndexMut<Idx>
         for StackVolume<X, Y, Z, T>
     {
+        #[inline]
         fn index_mut(&mut self, idx: Idx) -> &mut Self::Output {
             self.get_mut(idx).unwrap()
         }
@@ -182,18 +176,21 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T> Volume for StackVolume<X, Y, Z, T> {
         type Item = T;
 
+        #[inline]
         fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
             let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get(x)?.get(y)?.get(z)
         }
 
+        #[inline]
         fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
             let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }
 
+        #[inline]
         fn bounding_box(&self) -> BoundingBox {
             BoundingBox::new([0; 3], [X, Y, Z])
         }
