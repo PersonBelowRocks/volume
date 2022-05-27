@@ -3,11 +3,9 @@ use crate::traits::VolumeAccess;
 use crate::util;
 use num_traits::{NumCast, PrimInt};
 
-#[derive(te::Error, Debug)]
-#[non_exhaustive]
-pub enum InsertError {
-    #[error("inserting volume A into volume B at the given index would cause parts of A to be outside of B")]
-    VolumeEscapesBounds,
+pub enum Space<Idx: VolumeIdx> {
+    Localspace(Idx),
+    Worldspace(Idx),
 }
 
 impl<N: PrimInt> VolumeIdx for [N; 3] {
@@ -41,7 +39,7 @@ impl BoundingBox {
     /// The "closest" and "furthest" corners of the box spanned by the positions will be extracted and stored in the resulting [`BoundingBox`]
     /// # Panics
     /// Panics if `pos1` and `pos2` cannot be cast to `[i64; 3]`.
-    #[inline(always)]
+    #[inline]
     pub fn new<N: PrimInt>(pos1: [N; 3], pos2: [N; 3]) -> Self {
         use std::cmp::{max, min};
 

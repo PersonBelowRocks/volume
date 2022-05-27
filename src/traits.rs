@@ -2,10 +2,6 @@ use crate::types::*;
 use num_traits::NumCast;
 use num_traits::PrimInt;
 
-pub(crate) trait BasicCloneFill<T: Clone> {
-    fn clone_fill(size: [usize; 3], item: T) -> Self;
-}
-
 pub trait VolumeIdx: Sized + Copy {
     /// Create a new index from X, Y, and Z components.
     /// # Panics

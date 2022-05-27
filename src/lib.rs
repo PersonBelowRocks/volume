@@ -7,10 +7,18 @@ mod macros;
 mod tests;
 
 mod impls;
-pub mod prelude;
-mod spaces;
+pub use impls::heap_volume::HeapVolume;
+pub use impls::stack_volume::StackVolume;
+
+mod imports;
+pub use imports::{builtins, prelude};
+
 pub mod traits;
+pub use traits::*;
+
 pub mod types;
+pub use types::{BoundingBox, BoundingBoxIterator};
+
 mod util;
 
 #[cfg(feature = "nalgebra")]

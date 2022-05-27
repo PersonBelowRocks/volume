@@ -1,5 +1,3 @@
-use crate::prelude::*;
-
 #[cfg(test)]
 mod util {
     use crate::util;
@@ -58,7 +56,7 @@ mod util {
 
 #[cfg(test)]
 mod heap_volume {
-    use crate::{prelude::*, spaces::Space};
+    use crate::builtins::*;
 
     /// Build an example heap volume of `u8`s with a bounding box of (0, 0, 0) -> (6, 6, 6), filled with `10`.
     /// # Example
@@ -184,7 +182,7 @@ mod heap_volume {
 
 #[cfg(test)]
 mod stack_volume {
-    use crate::prelude::*;
+    use crate::builtins::*;
 
     #[test]
     fn stack_volume_conversions() {
@@ -250,6 +248,7 @@ mod stack_volume {
 #[cfg(feature = "nalgebra")]
 #[test]
 fn nalgebra_bounding_box_support() {
+    use crate::builtins::*;
     extern crate nalgebra as na;
 
     let v1 = na::vector![0, 0, 0];

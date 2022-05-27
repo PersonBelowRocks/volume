@@ -2,8 +2,6 @@ use crate::prelude::*;
 use crate::util;
 
 pub(crate) mod heap_volume {
-    use crate::{spaces::Space, traits::VolumeAccess};
-
     use super::*;
 
     type HeapVolumeStorage<T> = Box<[Box<[Box<[T]>]>]>;
@@ -163,9 +161,7 @@ pub(crate) mod heap_volume {
 pub(crate) mod stack_volume {
     use std::any::type_name;
 
-    use crate::traits::VolumeAccess;
-
-    use super::*;
+    use crate::builtins::*;
 
     type StackVolumeStorage<const X: usize, const Y: usize, const Z: usize, T> = [[[T; Z]; Y]; X];
 
