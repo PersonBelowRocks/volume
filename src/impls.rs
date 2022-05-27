@@ -51,15 +51,15 @@ pub(crate) mod heap_volume {
         type Item = T;
 
         #[inline]
-        fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item> {
-            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
+        fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get(x)?.get(y)?.get(z)
         }
 
         #[inline]
-        fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item> {
-            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
+        fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }
@@ -182,14 +182,14 @@ pub(crate) mod stack_volume {
     impl<const X: usize, const Y: usize, const Z: usize, T> Volume for StackVolume<X, Y, Z, T> {
         type Item = T;
 
-        fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item> {
-            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
+        fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get(x)?.get(y)?.get(z)
         }
 
-        fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item> {
-            let [x, y, z] = util::cast_ivec3::<usize, _>(idx)?;
+        fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
 
             self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }

@@ -21,24 +21,22 @@ pub trait Volume: Sized {
     type Item;
 
     /// Get a reference to the item at the given index in localspace.
-    /// Localspace indices cannot be negative (thus the index is in `u64`s).
     /// Implementors must make sure that this function returns [`None`] if the index is out of bounds.
     ///
     /// This function is used by [`Volume::get`], which internally (by default) uses the volume's bounding box's minimum
     /// to convert the index to localspace (index - bounding box minimum). This is assumed to be the case for a type implementing volume.
     /// If this for whatever reason is not the case for your volume (which is already a sign of problems), then override [`Volume::get`]
     /// to the appropriate implementation.
-    fn ls_get(&self, idx: [u64; 3]) -> Option<&Self::Item>;
+    fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item>;
 
     /// Get a mutable reference to the item at the given index in localspace.
-    /// Localspace indices cannot be negative (thus the index is in `u64`s).
     /// Implementors must make sure that this function returns [`None`] if the index is out of bounds.
     ///
     /// This function is used by [`Volume::get_mut`], which internally (by default) uses the volume's bounding box's minimum
     /// to convert the index to localspace (index - bounding box minimum). This is assumed to be the case for a type implementing volume.
     /// If this for whatever reason is not the case for your volume (which is already a sign of problems), then override [`Volume::get_mut`]
     /// to the appropriate implementation.
-    fn ls_get_mut(&mut self, idx: [u64; 3]) -> Option<&mut Self::Item>;
+    fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item>;
 
     /// Get a bounding box representing this volume's bounds. Implementors must assume that any position within the bounding box is a valid worldspace index
     /// so that [`Volume::get`] and [`Volume::get_mut`] do not return [`None`] when given the index.
