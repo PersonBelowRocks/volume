@@ -6,6 +6,7 @@ pub(crate) mod heap_volume {
 
     type HeapVolumeStorage<T> = Box<[Box<[Box<[T]>]>]>;
 
+    /// Heap allocated volume. Slower to allocate/create than [`StackVolume`] but is more flexible and can have more exotic bounds.
     pub struct HeapVolume<T> {
         inner: HeapVolumeStorage<T>,
         bounds: BoundingBox,
@@ -104,8 +105,19 @@ pub(crate) mod stack_volume {
 
     type StackVolumeStorage<const X: usize, const Y: usize, const Z: usize, T> = [[[T; Z]; Y]; X];
 
+    /// Stack allocated volume with size known at compile time. Faster to allocate/create than [`HeapVolume`] but not as flexible.
     pub struct StackVolume<const X: usize, const Y: usize, const Z: usize, T> {
         inner: StackVolumeStorage<X, Y, Z, T>,
+    }
+
+    impl<const X: usize, const Y: usize, const Z: usize, T: PartialEq> std::cmp::PartialEq
+        for StackVolume<X, Y, Z, T>
+    {
+        #[inline]
+        fn eq(&self, other: &Self) -> bool {
+            self.bounding_box() == other.bounding_box()
+                && !(self.iter().zip(other.iter()).any(|(a, b)| a != b))
+        }
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T: Copy> StackVolume<X, Y, Z, T> {
