@@ -8,6 +8,7 @@ mod tests;
 
 mod impls;
 pub mod prelude;
+mod spaces;
 pub mod traits;
 pub mod types;
 mod util;

@@ -58,7 +58,7 @@ mod util {
 
 #[cfg(test)]
 mod heap_volume {
-    use crate::prelude::*;
+    use crate::{prelude::*, spaces::Space};
 
     /// Build an example heap volume of `u8`s with a bounding box of (0, 0, 0) -> (6, 6, 6), filled with `10`.
     /// # Example
@@ -154,12 +154,12 @@ mod heap_volume {
     fn heap_volume_unusual_bounds() {
         let mut vol = HeapVolume::new(10, BoundingBox::new([-9, -9, -9], [-2, -2, -2]));
 
-        assert_eq!(vol.get([0i32, 0, 0]), None);
-        assert_eq!(vol.get([3i32, 3, 3]), None);
-        assert_eq!(vol.get([-4i32, -4, -4]), Some(&10));
+        assert_eq!(vol.ws_get([0i32, 0, 0]), None);
+        assert_eq!(vol.ws_get([3i32, 3, 3]), None);
+        assert_eq!(vol.ws_get([-4i32, -4, -4]), Some(&10));
 
-        assert_eq!(vol.swap([-4i32, -4, -4], 50), Some(10));
-        assert_eq!(vol.get([-4i32, -4, -4]), Some(&50));
+        assert_eq!(vol.ws_swap([-4i32, -4, -4], 50), Some(10));
+        assert_eq!(vol.ws_get([-4i32, -4, -4]), Some(&50));
 
         let mut idx_iterator = vol.iter_indices();
         let mut c = 0;
@@ -177,38 +177,8 @@ mod heap_volume {
         assert_eq!(idx_iterator.next(), None);
         assert_eq!(c, vol.bounding_box().capacity());
 
-        assert_eq!(vol.get([-9, -9, -9]), Some(&10));
-        assert_eq!(vol.get([-2, -2, -2]), None);
-    }
-
-    #[test]
-    fn heap_volume_insertion() {
-        let mut vol1 = HeapVolume::new(10, BoundingBox::new_origin([16i32, 16, 16]));
-        let vol2 = HeapVolume::new(20, BoundingBox::new([4i32, 4, 4], [10i32, 10, 10]));
-
-        vol1.insert([0i32, 0, 0], &vol2).unwrap();
-
-        for n in 0..4i32 {
-            assert_eq!(vol1[[n, n, n]], 10);
-        }
-
-        for n in 4..10i32 {
-            assert_eq!(vol1[[n, n, n]], 20);
-        }
-
-        for n in 10..16i32 {
-            assert_eq!(vol1[[n, n, n]], 10);
-        }
-
-        assert_eq!(vol1[[4i32, 4, 4]], 20);
-        assert_eq!(vol1[[9i32, 4, 4]], 20);
-        assert_eq!(vol1[[4i32, 9, 4]], 20);
-        assert_eq!(vol1[[4i32, 4, 9]], 20);
-
-        assert_eq!(vol1[[4i32, 9, 9]], 20);
-        assert_eq!(vol1[[9i32, 9, 4]], 20);
-        assert_eq!(vol1[[9i32, 9, 9]], 20);
-        assert_eq!(vol1[[9i32, 4, 9]], 20);
+        assert_eq!(vol.ws_get([-9, -9, -9]), Some(&10));
+        assert_eq!(vol.ws_get([-2, -2, -2]), None);
     }
 }
 

@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::util;
 
 pub(crate) mod heap_volume {
+    use crate::{spaces::Space, traits::VolumeAccess};
+
     use super::*;
 
     type HeapVolumeStorage<T> = Box<[Box<[Box<[T]>]>]>;
@@ -14,6 +16,30 @@ pub(crate) mod heap_volume {
 
     impl_indexing!(T, HeapVolume<T>);
     impl_debug!(T, HeapVolume<T>);
+
+    impl<T> HeapVolume<T> {
+        #[inline]
+        pub fn ws_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&<Self as Volume>::Item> {
+            self.get(Space::Worldspace(idx))
+        }
+
+        #[inline]
+        pub fn ws_get_mut<Idx: VolumeIdx>(
+            &mut self,
+            idx: Idx,
+        ) -> Option<&mut <Self as Volume>::Item> {
+            self.get_mut(Space::Worldspace(idx))
+        }
+
+        #[inline]
+        pub fn ws_swap<Idx: VolumeIdx>(
+            &mut self,
+            idx: Idx,
+            item: <Self as Volume>::Item,
+        ) -> Option<<Self as Volume>::Item> {
+            self.swap(Space::Worldspace(idx), item)
+        }
+    }
 
     impl<T: Clone> HeapVolume<T> {
         #[inline]
@@ -48,22 +74,56 @@ pub(crate) mod heap_volume {
         }
     }
 
+    impl<T, Idx: VolumeIdx> VolumeAccess<Idx> for HeapVolume<T> {
+        #[inline]
+        fn access(&self, idx: Idx) -> Option<&Self::Item> {
+            self.access(Space::Localspace(idx))
+        }
+
+        #[inline]
+        fn access_mut(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+            self.access_mut(Space::Localspace(idx))
+        }
+    }
+
+    impl<T, Idx: VolumeIdx> VolumeAccess<Space<Idx>> for HeapVolume<T> {
+        #[inline]
+        fn access(&self, idx: Space<Idx>) -> Option<&Self::Item> {
+            match idx {
+                Space::Worldspace(pos) => {
+                    let pos = pos.array::<i64>()?;
+                    self.access(Space::Localspace(util::sub_ivec3(
+                        pos,
+                        self.bounding_box().min(),
+                    )))
+                }
+                Space::Localspace(pos) => {
+                    let [x, y, z] = pos.array::<usize>()?;
+                    self.inner.get(x)?.get(y)?.get(z)
+                }
+            }
+        }
+
+        #[inline]
+        fn access_mut(&mut self, idx: Space<Idx>) -> Option<&mut Self::Item> {
+            match idx {
+                Space::Worldspace(pos) => {
+                    let pos = pos.array::<i64>()?;
+                    self.access_mut(Space::Localspace(util::sub_ivec3(
+                        pos,
+                        self.bounding_box().min(),
+                    )))
+                }
+                Space::Localspace(pos) => {
+                    let [x, y, z] = pos.array::<usize>()?;
+                    self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+                }
+            }
+        }
+    }
+
     impl<T> Volume for HeapVolume<T> {
         type Item = T;
-
-        #[inline]
-        fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-
-            self.inner.get(x)?.get(y)?.get(z)
-        }
-
-        #[inline]
-        fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-
-            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
-        }
 
         #[inline]
         fn bounding_box(&self) -> BoundingBox {
@@ -102,6 +162,8 @@ pub(crate) mod heap_volume {
 
 pub(crate) mod stack_volume {
     use std::any::type_name;
+
+    use crate::traits::VolumeAccess;
 
     use super::*;
 
@@ -180,6 +242,22 @@ pub(crate) mod stack_volume {
         }
     }
 
+    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> VolumeAccess<Idx>
+        for StackVolume<X, Y, Z, T>
+    {
+        #[inline]
+        fn access(&self, idx: Idx) -> Option<&Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
+            self.inner.get(x)?.get(y)?.get(z)
+        }
+
+        #[inline]
+        fn access_mut(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+            let [x, y, z] = idx.array::<usize>()?;
+            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+        }
+    }
+
     impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> std::ops::Index<Idx>
         for StackVolume<X, Y, Z, T>
     {
@@ -202,20 +280,6 @@ pub(crate) mod stack_volume {
 
     impl<const X: usize, const Y: usize, const Z: usize, T> Volume for StackVolume<X, Y, Z, T> {
         type Item = T;
-
-        #[inline]
-        fn ls_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-
-            self.inner.get(x)?.get(y)?.get(z)
-        }
-
-        #[inline]
-        fn ls_get_mut<Idx: VolumeIdx>(&mut self, idx: Idx) -> Option<&mut Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-
-            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
-        }
 
         #[inline]
         fn bounding_box(&self) -> BoundingBox {

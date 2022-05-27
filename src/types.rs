@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::traits::VolumeAccess;
 use crate::util;
 use num_traits::{NumCast, PrimInt};
 
@@ -227,15 +228,15 @@ impl Iterator for BoundingBoxIterator {
     }
 }
 
-pub struct VolumeIterator<'a, Vol: Volume> {
+pub struct VolumeIterator<'a, Vol: Volume + VolumeAccess<[i64; 3]>> {
     pub(crate) volume: &'a Vol,
     pub(crate) bb_iterator: BoundingBoxIterator,
 }
 
-impl<'a, Vol: Volume> Iterator for VolumeIterator<'a, Vol> {
+impl<'a, Vol: Volume + VolumeAccess<[i64; 3]>> Iterator for VolumeIterator<'a, Vol> {
     type Item = &'a <Vol as Volume>::Item;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.bb_iterator.next()?;
         self.volume.get(idx)
