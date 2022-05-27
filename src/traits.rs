@@ -7,7 +7,7 @@ pub(crate) trait BasicCloneFill<T: Clone> {
     fn clone_fill(size: [usize; 3], item: T) -> Self;
 }
 
-pub trait VolumeIdx: Sized {
+pub trait VolumeIdx: Sized + Copy {
     /// Create a new index from X, Y, and Z components.
     /// # Panics
     /// Implementors may panic if `N` is not a valid type to build `Self` from.
