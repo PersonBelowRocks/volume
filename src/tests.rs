@@ -212,6 +212,71 @@ mod heap_volume {
     }
 }
 
+#[cfg(test)]
+mod stack_volume {
+    use crate::prelude::*;
+
+    #[test]
+    fn stack_volume_conversions() {
+        let stack_vol = StackVolume::<10, 10, 10, i32>::filled(42);
+        let heap_vol: HeapVolume<_> = stack_vol.into();
+
+        assert_eq!(
+            heap_vol.bounding_box(),
+            BoundingBox::new_origin([10, 10, 10])
+        );
+        assert_eq!(heap_vol.get([5, 4, 6]), Some(&42));
+    }
+
+    #[test]
+    fn stack_volume_iteration() {
+        let vol = StackVolume::<10, 10, 10, i32>::filled(42);
+        let mut iterator = vol.iter_indices();
+
+        let mut c = 0;
+
+        for z in 0..10 {
+            for y in 0..10 {
+                for x in 0..10 {
+                    c += 1;
+                    assert_eq!(iterator.next(), Some([x, y, z]));
+                }
+            }
+        }
+
+        assert!(iterator.next().is_none());
+        assert_eq!(c, vol.bounding_box().capacity());
+
+        let mut c = 0;
+        let mut iterator = vol.iter();
+        #[allow(clippy::while_let_on_iterator)] // bit more clear this way
+        while let Some(item) = iterator.next() {
+            c += 1;
+            assert_eq!(item, &42);
+        }
+
+        assert_eq!(c, vol.bounding_box().capacity());
+    }
+
+    #[test]
+    fn stack_volume_access() {
+        let mut vol = StackVolume::<10, 10, 10, i32>::filled(42);
+
+        assert_eq!(vol.get([4i32, 4, 4]), Some(&42));
+        assert_eq!(vol.get([-1i32, -1, -1]), None);
+        assert_eq!(vol.get([10i32, 10, 10]), None);
+        assert_eq!(vol.get([9i32, 9, 9]), Some(&42));
+
+        assert_eq!(vol.swap([7i32, 7, 7], 21), Some(42));
+        assert_eq!(vol.swap([10i32, 10, 10], 21), None);
+        assert_eq!(vol.get([7i32, 7, 7]), Some(&21));
+
+        let slot = vol.get_mut([9i32, 9, 9]).unwrap();
+        *slot = -100;
+        assert_eq!(vol.get([9i32, 9, 9]), Some(&-100));
+    }
+}
+
 #[cfg(feature = "nalgebra")]
 #[test]
 fn nalgebra_bounding_box_support() {
