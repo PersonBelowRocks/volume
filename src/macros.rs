@@ -55,8 +55,8 @@ macro_rules! impl_boundingbox_from_volumeidx_range {
         {
             #[inline(always)]
             fn from(range: std::ops::Range<$t>) -> Self {
-                let pos1 = range.start.to_arr::<i64>().unwrap();
-                let pos2 = range.end.to_arr::<i64>().unwrap();
+                let pos1 = range.start.array::<i64>().unwrap();
+                let pos2 = range.end.array::<i64>().unwrap();
 
                 crate::prelude::BoundingBox::new(pos1, pos2)
             }

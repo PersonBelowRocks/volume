@@ -10,13 +10,22 @@ pub enum InsertError {
 }
 
 impl<N: PrimInt> VolumeIdx for [N; 3] {
-    #[inline(always)]
-    fn unpack<T: NumCast>(self) -> Option<(T, T, T)> {
-        Some((
+    #[inline]
+    fn array<T: NumCast + PrimInt>(self) -> Option<[T; 3]> {
+        Some([
             <T as NumCast>::from(self[0])?,
             <T as NumCast>::from(self[1])?,
             <T as NumCast>::from(self[2])?,
-        ))
+        ])
+    }
+
+    #[inline]
+    fn from_xyz<T: PrimInt>(x: T, y: T, z: T) -> Self {
+        [
+            <N as NumCast>::from(x).expect("cannot cast X to this array's type"),
+            <N as NumCast>::from(y).expect("cannot cast Y to this array's type"),
+            <N as NumCast>::from(z).expect("cannot cast Z to this array's type"),
+        ]
     }
 }
 
@@ -79,7 +88,7 @@ impl BoundingBox {
     /// Also returns false if the index could not be unpacked to (i64, i64, i64).
     #[inline(always)]
     pub fn contains<Idx: VolumeIdx>(&self, idx: Idx) -> bool {
-        let (x, y, z) = match idx.unpack::<i64>() {
+        let [x, y, z] = match idx.array::<i64>() {
             Some(tuple) => tuple,
             None => return false,
         };

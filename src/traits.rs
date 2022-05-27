@@ -1,21 +1,21 @@
 use crate::types::*;
 use crate::util;
 use num_traits::NumCast;
+use num_traits::PrimInt;
 
 pub(crate) trait BasicCloneFill<T: Clone> {
     fn clone_fill(size: [usize; 3], item: T) -> Self;
 }
 
 pub trait VolumeIdx: Sized {
-    /// Unpack the index and cast the components to a type of your choosing.
-    /// Will return [`None`] if the cast failed (e.g., components are signed and negative and attempted to cast to an unsigned type).
-    fn unpack<T: NumCast>(self) -> Option<(T, T, T)>;
+    /// Create a new index from X, Y, and Z components.
+    /// # Panics
+    /// Implementors may panic if `N` is not a valid type to build `Self` from.
+    fn from_xyz<N: PrimInt>(x: N, y: N, z: N) -> Self;
 
-    #[inline(always)]
-    fn to_arr<T: NumCast>(self) -> Option<[T; 3]> {
-        let (x, y, z) = self.unpack::<T>()?;
-        Some([x, y, z])
-    }
+    /// Cast this index to an array of an integer type.
+    /// Returns `None` if the cast failed.
+    fn array<T: NumCast + PrimInt>(self) -> Option<[T; 3]>;
 }
 pub trait Volume: Sized {
     type Item;
@@ -50,7 +50,7 @@ pub trait Volume: Sized {
     /// Returns [`None`] if the conversion was unsucessful (e.g., if the index is less than the bounding box's minimum, making it OOB).
     #[inline(always)]
     fn to_ls<Idx: VolumeIdx>(&self, idx: Idx) -> Option<[u64; 3]> {
-        let (x, y, z) = idx.unpack::<i64>()?;
+        let [x, y, z] = idx.array::<i64>()?;
         let min = self.bounding_box().min();
         let ls_idx = util::sub_ivec3([x, y, z], min);
 
@@ -114,7 +114,7 @@ pub trait Volume: Sized {
         Idx: VolumeIdx,
         Self::Item: Copy,
     {
-        let at = at.to_arr::<i64>().unwrap();
+        let at = at.array::<i64>().unwrap();
 
         let rhs_min = rhs.bounding_box().min();
         let rhs_max = rhs.bounding_box().max();
@@ -140,7 +140,7 @@ pub trait Volume: Sized {
         Idx: VolumeIdx,
         Self::Item: Copy,
     {
-        let at = at.to_arr::<i64>().unwrap();
+        let at = at.array::<i64>().unwrap();
 
         for rhs_idx in rhs.iter_indices() {
             if let Some(&item) = rhs.get(rhs_idx) {

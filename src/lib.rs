@@ -23,13 +23,22 @@ mod nalgebra_support {
     use num_traits::{NumCast, PrimInt};
 
     impl<N: PrimInt> VolumeIdx for na::Vector3<N> {
-        #[inline(always)]
-        fn unpack<T: NumCast>(self) -> Option<(T, T, T)> {
-            Some((
+        #[inline]
+        fn array<T: NumCast>(self) -> Option<[T; 3]> {
+            Some([
                 <T as NumCast>::from(self[0])?,
                 <T as NumCast>::from(self[1])?,
                 <T as NumCast>::from(self[2])?,
-            ))
+            ])
+        }
+
+        #[inline]
+        fn from_xyz<T: PrimInt>(x: T, y: T, z: T) -> Self {
+            Self::new(
+                <N as NumCast>::from(x).unwrap(),
+                <N as NumCast>::from(y).unwrap(),
+                <N as NumCast>::from(z).unwrap(),
+            )
         }
     }
 
@@ -51,27 +60,45 @@ mod glam_support {
     extern crate glam;
 
     use crate::prelude::*;
-    use num_traits::NumCast;
+    use num_traits::{NumCast, PrimInt};
 
     impl VolumeIdx for glam::IVec3 {
-        #[inline(always)]
-        fn unpack<T: NumCast>(self) -> Option<(T, T, T)> {
-            Some((
+        #[inline]
+        fn array<T: NumCast>(self) -> Option<[T; 3]> {
+            Some([
                 <T as NumCast>::from(self[0])?,
                 <T as NumCast>::from(self[1])?,
                 <T as NumCast>::from(self[2])?,
-            ))
+            ])
+        }
+
+        #[inline]
+        fn from_xyz<N: PrimInt>(x: N, y: N, z: N) -> Self {
+            Self::new(
+                <i32 as NumCast>::from(x).unwrap(),
+                <i32 as NumCast>::from(y).unwrap(),
+                <i32 as NumCast>::from(z).unwrap(),
+            )
         }
     }
 
     impl VolumeIdx for glam::UVec3 {
-        #[inline(always)]
-        fn unpack<T: NumCast>(self) -> Option<(T, T, T)> {
-            Some((
+        #[inline]
+        fn array<T: NumCast>(self) -> Option<[T; 3]> {
+            Some([
                 <T as NumCast>::from(self[0])?,
                 <T as NumCast>::from(self[1])?,
                 <T as NumCast>::from(self[2])?,
-            ))
+            ])
+        }
+
+        #[inline]
+        fn from_xyz<T: PrimInt>(x: T, y: T, z: T) -> Self {
+            Self::new(
+                <u32 as NumCast>::from(x).unwrap(),
+                <u32 as NumCast>::from(y).unwrap(),
+                <u32 as NumCast>::from(z).unwrap(),
+            )
         }
     }
 
