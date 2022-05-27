@@ -101,6 +101,8 @@ pub(crate) mod heap_volume {
 }
 
 pub(crate) mod stack_volume {
+    use std::any::type_name;
+
     use super::*;
 
     type StackVolumeStorage<const X: usize, const Y: usize, const Z: usize, T> = [[[T; Z]; Y]; X];
@@ -108,6 +110,19 @@ pub(crate) mod stack_volume {
     /// Stack allocated volume with size known at compile time. Faster to allocate/create than [`HeapVolume`] but not as flexible.
     pub struct StackVolume<const X: usize, const Y: usize, const Z: usize, T> {
         inner: StackVolumeStorage<X, Y, Z, T>,
+    }
+
+    impl<const X: usize, const Y: usize, const Z: usize, T> std::fmt::Debug
+        for StackVolume<X, Y, Z, T>
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let capacity = self.bounding_box().capacity();
+
+            write!(f, "StackVolume<{}> {{", type_name::<T>())?;
+            write!(f, "    bounds: {},", self.bounding_box())?;
+            write!(f, "    capacity: {}", capacity)?;
+            write!(f, "}}")
+        }
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T: PartialEq> std::cmp::PartialEq
