@@ -17,6 +17,30 @@ pub(crate) mod heap_volume {
 
     impl<T> HeapVolume<T> {
         #[inline]
+        fn to_ls<Idx: VolumeIdx>(&self, idx: Space<Idx>) -> Option<[usize; 3]> {
+            match idx {
+                Space::Worldspace(pos) => {
+                    let pos = pos.array::<i64>()?;
+                    let maybe_ls = util::sub_ivec3(pos, self.bounding_box().min());
+                    maybe_ls.array::<usize>()
+                }
+                Space::Localspace(pos) => pos.array::<usize>(),
+            }
+        }
+
+        #[inline]
+        fn ls_get(&self, idx: [usize; 3]) -> Option<&<Self as Volume>::Item> {
+            let [x, y, z] = idx;
+            self.inner.get(x)?.get(y)?.get(z)
+        }
+
+        #[inline]
+        fn ls_get_mut(&mut self, idx: [usize; 3]) -> Option<&mut <Self as Volume>::Item> {
+            let [x, y, z] = idx;
+            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+        }
+
+        #[inline]
         pub fn ws_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&<Self as Volume>::Item> {
             self.get(Space::Worldspace(idx))
         }
@@ -88,46 +112,45 @@ pub(crate) mod heap_volume {
         fn access(this: &Self, idx: Idx) -> Option<&Self::Item> {
             Self::access(this, Space::Localspace(idx))
         }
+    }
 
+    impl<T, Idx: VolumeIdx> VolumeMutAccess<Idx> for HeapVolume<T> {
         #[inline]
         fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
             Self::access_mut(this, Space::Localspace(idx))
         }
     }
 
+    impl<T, Idx: VolumeIdx> VolumeSwapper<Idx> for HeapVolume<T> {
+        #[inline]
+        fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<<Self as Volume>::Item> {
+            this.swap(Space::Localspace(idx), item)
+        }
+    }
+
     impl<T, Idx: VolumeIdx> VolumeAccess<Space<Idx>> for HeapVolume<T> {
         #[inline]
         fn access(this: &Self, idx: Space<Idx>) -> Option<&Self::Item> {
-            match idx {
-                Space::Worldspace(pos) => {
-                    let pos = pos.array::<i64>()?;
-                    Self::access(
-                        this,
-                        Space::Localspace(util::sub_ivec3(pos, this.bounding_box().min())),
-                    )
-                }
-                Space::Localspace(pos) => {
-                    let [x, y, z] = pos.array::<usize>()?;
-                    this.inner.get(x)?.get(y)?.get(z)
-                }
-            }
+            this.ls_get(this.to_ls(idx)?)
         }
+    }
 
+    impl<T, Idx: VolumeIdx> VolumeMutAccess<Space<Idx>> for HeapVolume<T> {
         #[inline]
         fn access_mut(this: &mut Self, idx: Space<Idx>) -> Option<&mut Self::Item> {
-            match idx {
-                Space::Worldspace(pos) => {
-                    let pos = pos.array::<i64>()?;
-                    Self::access_mut(
-                        this,
-                        Space::Localspace(util::sub_ivec3(pos, this.bounding_box().min())),
-                    )
-                }
-                Space::Localspace(pos) => {
-                    let [x, y, z] = pos.array::<usize>()?;
-                    this.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
-                }
-            }
+            this.ls_get_mut(this.to_ls(idx)?)
+        }
+    }
+
+    impl<T, Idx: VolumeIdx> VolumeSwapper<Space<Idx>> for HeapVolume<T> {
+        #[inline]
+        fn swap(
+            this: &mut Self,
+            idx: Space<Idx>,
+            item: Self::Item,
+        ) -> Option<<Self as Volume>::Item> {
+            let slot = this.get_mut(idx)?;
+            Some(std::mem::replace(slot, item))
         }
     }
 
@@ -257,11 +280,25 @@ pub(crate) mod stack_volume {
             let [x, y, z] = idx.array::<usize>()?;
             this.inner.get(x)?.get(y)?.get(z)
         }
+    }
 
+    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> VolumeMutAccess<Idx>
+        for StackVolume<X, Y, Z, T>
+    {
         #[inline]
         fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
             let [x, y, z] = idx.array::<usize>()?;
             this.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+        }
+    }
+
+    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> VolumeSwapper<Idx>
+        for StackVolume<X, Y, Z, T>
+    {
+        #[inline]
+        fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<Self::Item> {
+            let slot = this.get_mut(idx)?;
+            Some(std::mem::replace(slot, item))
         }
     }
 

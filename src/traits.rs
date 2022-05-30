@@ -88,8 +88,10 @@ pub trait VolumeIdx: Sized + Copy {
 ///             }
 ///         }
 ///     }
+/// }
 ///
-///     // This is the exact same as above but with get_mut() instead of get()!
+/// // This is the exact same as above but with get_mut() instead of get()!
+/// impl VolumeMutAccess<ChunkIndex> for Chunk {
 ///     fn access_mut(this: &mut Self, idx: ChunkIndex) -> Option<&mut Self::Item> {
 ///         match idx {
 ///             ChunkIndex::Worldspace(pos) => {
@@ -143,7 +145,19 @@ pub trait VolumeIdx: Sized + Copy {
 /// ```
 pub trait VolumeAccess<Idx>: Volume {
     fn access(this: &Self, idx: Idx) -> Option<&Self::Item>;
+}
+
+/// Like [`VolumeAccess`] but provides a mutable borrow instead.
+/// If it doesn't make sense for your volume to return a mutable reference to its items
+/// (for example if your volume performs some transformation in its accessors, and stores a different type than what it returns)
+/// then you should implement [`VolumeSwapper`] to mutate the volume instead.
+pub trait VolumeMutAccess<Idx>: Volume {
     fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item>;
+}
+
+/// Swaps the value at the given `idx` with the provided `item`, and returns the old value if it existed (otherwise returns [`None`]).
+pub trait VolumeSwapper<Idx>: Volume {
+    fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<Self::Item>;
 }
 
 /// Provides a bunch of convenience methods related to volumes. Should be implemented for any type
@@ -162,14 +176,24 @@ pub trait Volume: Sized {
         <Self as VolumeAccess<Idx>>::access(self, idx)
     }
 
-    /// Wrapper around [`VolumeAccess<Idx>::access_mut`], and requires [`VolumeAccess<Idx>`] to be implemented for the volume.
-    /// Returns [`None`] if the given `idx` is invalid (depends on the implementation of [`VolumeAccess<Idx>`]).
+    /// Wrapper around [`VolumeMutAccess<Idx>::access_mut`], and requires [`VolumeMutAccess<Idx>`] to be implemented for the volume.
+    /// Returns [`None`] if the given `idx` is invalid (depends on the implementation of [`VolumeMutAccess<Idx>`]).
     #[inline]
     fn get_mut<Idx>(&mut self, idx: Idx) -> Option<&mut Self::Item>
     where
-        Self: VolumeAccess<Idx>,
+        Self: VolumeMutAccess<Idx>,
     {
-        <Self as VolumeAccess<Idx>>::access_mut(self, idx)
+        <Self as VolumeMutAccess<Idx>>::access_mut(self, idx)
+    }
+
+    /// Wrapper around [`VolumeSwapper<Idx>::swap`], and requires [`VolumeSwapper<Idx>`] to be implemented for the volume.
+    /// Returns [`None`] if the given `idx` is invalid (depends on the implementation of [`VolumeSwapper<Idx>`]).
+    #[inline]
+    fn swap<Idx>(&mut self, idx: Idx, item: Self::Item) -> Option<Self::Item>
+    where
+        Self: VolumeSwapper<Idx>,
+    {
+        <Self as VolumeSwapper<Idx>>::swap(self, idx, item)
     }
 
     /// Get a [`BoundingBox`] representing this volume's bounds. Implementors must assume that any position within the bounding box is a valid worldspace index
@@ -179,18 +203,6 @@ pub trait Volume: Sized {
     ///
     /// [`BoundingBox`]es may change in the future to allow for different vector spaces.
     fn bounding_box(&self) -> BoundingBox;
-
-    /// Swap the item at the given worldspace index with the provided `item`, returning the previous item.
-    /// Returns [`None`] if the index was invalid (e.g., out of bounds).
-    ///
-    /// Relies on [`Volume::get_mut`] internally.
-    #[inline]
-    fn swap<Idx>(&mut self, idx: Idx, item: Self::Item) -> Option<Self::Item>
-    where
-        Self: VolumeAccess<Idx>,
-    {
-        Some(std::mem::replace(self.get_mut(idx)?, item))
-    }
 
     /// Checks if this volume contains the worldspace index.
     #[inline]
