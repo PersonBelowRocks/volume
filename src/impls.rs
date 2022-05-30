@@ -40,6 +40,17 @@ pub(crate) mod heap_volume {
     }
 
     impl<T: Clone> HeapVolume<T> {
+        /// Create a new heap allocated volume with the provided `bounds` and filled with the provided `item`.
+        ///
+        /// # Example
+        /// ```rust
+        /// use volume::{HeapVolume, BoundingBox, Volume, VolumeAccess};
+        ///
+        /// let vol = HeapVolume::new(10, BoundingBox::new_origin([20usize, 20, 20]));
+        ///
+        /// assert_eq!(vol.bounding_box().dimensions(), [20, 20, 20]);
+        /// assert_eq!(vol.get([8i32, 7, 2]), Some(&10));
+        /// ```
         #[inline]
         pub fn new(item: T, bounds: impl Into<BoundingBox>) -> Self {
             use util::boxed_slice;
@@ -74,47 +85,47 @@ pub(crate) mod heap_volume {
 
     impl<T, Idx: VolumeIdx> VolumeAccess<Idx> for HeapVolume<T> {
         #[inline]
-        fn access(&self, idx: Idx) -> Option<&Self::Item> {
-            self.access(Space::Localspace(idx))
+        fn access(this: &Self, idx: Idx) -> Option<&Self::Item> {
+            Self::access(this, Space::Localspace(idx))
         }
 
         #[inline]
-        fn access_mut(&mut self, idx: Idx) -> Option<&mut Self::Item> {
-            self.access_mut(Space::Localspace(idx))
+        fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
+            Self::access_mut(this, Space::Localspace(idx))
         }
     }
 
     impl<T, Idx: VolumeIdx> VolumeAccess<Space<Idx>> for HeapVolume<T> {
         #[inline]
-        fn access(&self, idx: Space<Idx>) -> Option<&Self::Item> {
+        fn access(this: &Self, idx: Space<Idx>) -> Option<&Self::Item> {
             match idx {
                 Space::Worldspace(pos) => {
                     let pos = pos.array::<i64>()?;
-                    self.access(Space::Localspace(util::sub_ivec3(
-                        pos,
-                        self.bounding_box().min(),
-                    )))
+                    Self::access(
+                        this,
+                        Space::Localspace(util::sub_ivec3(pos, this.bounding_box().min())),
+                    )
                 }
                 Space::Localspace(pos) => {
                     let [x, y, z] = pos.array::<usize>()?;
-                    self.inner.get(x)?.get(y)?.get(z)
+                    this.inner.get(x)?.get(y)?.get(z)
                 }
             }
         }
 
         #[inline]
-        fn access_mut(&mut self, idx: Space<Idx>) -> Option<&mut Self::Item> {
+        fn access_mut(this: &mut Self, idx: Space<Idx>) -> Option<&mut Self::Item> {
             match idx {
                 Space::Worldspace(pos) => {
                     let pos = pos.array::<i64>()?;
-                    self.access_mut(Space::Localspace(util::sub_ivec3(
-                        pos,
-                        self.bounding_box().min(),
-                    )))
+                    Self::access_mut(
+                        this,
+                        Space::Localspace(util::sub_ivec3(pos, this.bounding_box().min())),
+                    )
                 }
                 Space::Localspace(pos) => {
                     let [x, y, z] = pos.array::<usize>()?;
-                    self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+                    this.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
                 }
             }
         }
@@ -242,15 +253,15 @@ pub(crate) mod stack_volume {
         for StackVolume<X, Y, Z, T>
     {
         #[inline]
-        fn access(&self, idx: Idx) -> Option<&Self::Item> {
+        fn access(this: &Self, idx: Idx) -> Option<&Self::Item> {
             let [x, y, z] = idx.array::<usize>()?;
-            self.inner.get(x)?.get(y)?.get(z)
+            this.inner.get(x)?.get(y)?.get(z)
         }
 
         #[inline]
-        fn access_mut(&mut self, idx: Idx) -> Option<&mut Self::Item> {
+        fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
             let [x, y, z] = idx.array::<usize>()?;
-            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+            this.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }
     }
 
