@@ -3,11 +3,6 @@ use crate::traits::VolumeAccess;
 use crate::util;
 use num_traits::{NumCast, PrimInt};
 
-pub enum Space<Idx: VolumeIdx> {
-    Localspace(Idx),
-    Worldspace(Idx),
-}
-
 impl<N: PrimInt> VolumeIdx for [N; 3] {
     #[inline]
     fn array<T: NumCast + PrimInt>(self) -> Option<[T; 3]> {

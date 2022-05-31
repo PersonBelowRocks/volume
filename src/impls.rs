@@ -17,18 +17,6 @@ pub(crate) mod heap_volume {
 
     impl<T> HeapVolume<T> {
         #[inline]
-        fn to_ls<Idx: VolumeIdx>(&self, idx: Space<Idx>) -> Option<[usize; 3]> {
-            match idx {
-                Space::Worldspace(pos) => {
-                    let pos = pos.array::<i64>()?;
-                    let maybe_ls = util::sub_ivec3(pos, self.bounding_box().min());
-                    maybe_ls.array::<usize>()
-                }
-                Space::Localspace(pos) => pos.array::<usize>(),
-            }
-        }
-
-        #[inline]
         fn ls_get(&self, idx: [usize; 3]) -> Option<&<Self as Volume>::Item> {
             let [x, y, z] = idx;
             self.inner.get(x)?.get(y)?.get(z)
@@ -41,25 +29,8 @@ pub(crate) mod heap_volume {
         }
 
         #[inline]
-        pub fn ws_get<Idx: VolumeIdx>(&self, idx: Idx) -> Option<&<Self as Volume>::Item> {
-            self.get(Space::Worldspace(idx))
-        }
-
-        #[inline]
-        pub fn ws_get_mut<Idx: VolumeIdx>(
-            &mut self,
-            idx: Idx,
-        ) -> Option<&mut <Self as Volume>::Item> {
-            self.get_mut(Space::Worldspace(idx))
-        }
-
-        #[inline]
-        pub fn ws_swap<Idx: VolumeIdx>(
-            &mut self,
-            idx: Idx,
-            item: <Self as Volume>::Item,
-        ) -> Option<<Self as Volume>::Item> {
-            self.swap(Space::Worldspace(idx), item)
+        pub fn bounding_box(&self) -> BoundingBox {
+            self.bounds
         }
     }
 
@@ -90,14 +61,6 @@ pub(crate) mod heap_volume {
         }
     }
 
-    impl<T: PartialEq> std::cmp::PartialEq for HeapVolume<T> {
-        #[inline]
-        fn eq(&self, other: &Self) -> bool {
-            self.bounding_box() == other.bounding_box()
-                && !(self.iter().zip(other.iter()).any(|(a, b)| a != b))
-        }
-    }
-
     impl<T: Clone> Clone for HeapVolume<T> {
         fn clone(&self) -> Self {
             Self {
@@ -109,58 +72,85 @@ pub(crate) mod heap_volume {
 
     impl<T, Idx: VolumeIdx> VolumeAccess<Idx> for HeapVolume<T> {
         #[inline]
-        fn access(this: &Self, idx: Idx) -> Option<&Self::Item> {
-            Self::access(this, Space::Localspace(idx))
+        fn get(this: &Self, idx: Idx) -> Option<&Self::Item> {
+            this.ls_get(idx.array::<usize>()?)
+        }
+
+        #[inline]
+        fn set(this: &mut Self, idx: Idx, item: Self::Item) {
+            if let Some(slot) = idx.array::<usize>().and_then(|i| this.ls_get_mut(i)) {
+                *slot = item;
+            }
+        }
+
+        #[inline]
+        fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<Self::Item> {
+            use std::mem::replace;
+
+            let slot = this.ls_get_mut(idx.array::<usize>()?)?;
+            Some(replace(slot, item))
+        }
+
+        #[inline]
+        fn contains(this: &Self, idx: Idx) -> bool {
+            if let Some([x, y, z]) = idx.array::<usize>() {    
+                x < this.inner.len()
+                && y < this.inner[0].len()
+                && z < this.inner[0][0].len()
+            } else {
+                false
+            }
         }
     }
 
-    impl<T, Idx: VolumeIdx> VolumeMutAccess<Idx> for HeapVolume<T> {
+    #[derive(Copy, Clone)]
+    pub struct Worldspace<Idx: VolumeIdx>(pub Idx);
+
+    impl<Idx: VolumeIdx> Worldspace<Idx> {
         #[inline]
-        fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
-            Self::access_mut(this, Space::Localspace(idx))
+        fn to_ls(self, b: BoundingBox) -> Option<Idx> {
+            use util::sub_ivec3;
+
+            let [x, y, z] = sub_ivec3(
+                self.0.array::<i64>()?,
+                b.min()
+            );
+
+            Some(Idx::from_xyz(x, y, z))
         }
     }
 
-    impl<T, Idx: VolumeIdx> VolumeSwapper<Idx> for HeapVolume<T> {
+    impl<T, Idx: VolumeIdx> VolumeAccess<Worldspace<Idx>> for HeapVolume<T> 
+    where 
+        Self: VolumeAccess<Idx>
+    {
         #[inline]
-        fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<<Self as Volume>::Item> {
-            this.swap(Space::Localspace(idx), item)
+        fn get(this: &Self, idx: Worldspace<Idx>) -> Option<&Self::Item> {
+            let ls_idx = idx.to_ls(this.bounding_box())?;
+            <Self as VolumeAccess<Idx>>::get(this, ls_idx)
         }
-    }
 
-    impl<T, Idx: VolumeIdx> VolumeAccess<Space<Idx>> for HeapVolume<T> {
         #[inline]
-        fn access(this: &Self, idx: Space<Idx>) -> Option<&Self::Item> {
-            this.ls_get(this.to_ls(idx)?)
+        fn set(this: &mut Self, idx: Worldspace<Idx>, item: Self::Item) {
+            if let Some(ls_idx) = idx.to_ls(this.bounding_box()) {
+                <Self as VolumeAccess<Idx>>::set(this, ls_idx, item)
+            }
         }
-    }
 
-    impl<T, Idx: VolumeIdx> VolumeMutAccess<Space<Idx>> for HeapVolume<T> {
         #[inline]
-        fn access_mut(this: &mut Self, idx: Space<Idx>) -> Option<&mut Self::Item> {
-            this.ls_get_mut(this.to_ls(idx)?)
+        fn swap(this: &mut Self, idx: Worldspace<Idx>, item: Self::Item) -> Option<Self::Item> {
+            let ls_idx = idx.to_ls(this.bounding_box())?;
+            <Self as VolumeAccess<Idx>>::swap(this, ls_idx, item)
         }
-    }
 
-    impl<T, Idx: VolumeIdx> VolumeSwapper<Space<Idx>> for HeapVolume<T> {
         #[inline]
-        fn swap(
-            this: &mut Self,
-            idx: Space<Idx>,
-            item: Self::Item,
-        ) -> Option<<Self as Volume>::Item> {
-            let slot = this.get_mut(idx)?;
-            Some(std::mem::replace(slot, item))
+        fn contains(this: &Self, idx: Worldspace<Idx>) -> bool {
+            this.bounding_box().contains(idx.0)
         }
     }
 
     impl<T> Volume for HeapVolume<T> {
         type Item = T;
-
-        #[inline]
-        fn bounding_box(&self) -> BoundingBox {
-            self.bounds
-        }
     }
 
     impl<const X: usize, const Y: usize, const Z: usize, T> From<[[[T; Z]; Y]; X]> for HeapVolume<T> {
@@ -193,8 +183,6 @@ pub(crate) mod heap_volume {
 }
 
 pub(crate) mod stack_volume {
-    use std::any::type_name;
-
     use crate::builtins::*;
 
     type StackVolumeStorage<const X: usize, const Y: usize, const Z: usize, T> = [[[T; Z]; Y]; X];
@@ -204,35 +192,26 @@ pub(crate) mod stack_volume {
         inner: StackVolumeStorage<X, Y, Z, T>,
     }
 
-    impl<const X: usize, const Y: usize, const Z: usize, T> std::fmt::Debug
-        for StackVolume<X, Y, Z, T>
-    {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let capacity = self.bounding_box().capacity();
-
-            write!(f, "StackVolume<{}> {{", type_name::<T>())?;
-            write!(f, "    bounds: {},", self.bounding_box())?;
-            write!(f, "    capacity: {}", capacity)?;
-            write!(f, "}}")
-        }
-    }
-
-    impl<const X: usize, const Y: usize, const Z: usize, T: PartialEq> std::cmp::PartialEq
-        for StackVolume<X, Y, Z, T>
-    {
-        #[inline]
-        fn eq(&self, other: &Self) -> bool {
-            self.bounding_box() == other.bounding_box()
-                && !(self.iter().zip(other.iter()).any(|(a, b)| a != b))
-        }
-    }
-
     impl<const X: usize, const Y: usize, const Z: usize, T: Copy> StackVolume<X, Y, Z, T> {
         #[inline]
         pub fn filled(item: T) -> Self {
             Self {
                 inner: [[[item; Z]; Y]; X],
             }
+        }
+    }
+
+    impl<const X: usize, const Y: usize, const Z: usize, T> StackVolume<X, Y, Z, T> {
+        #[inline]
+        fn ls_get(&self, idx: [usize; 3]) -> Option<&<Self as Volume>::Item> {
+            let [x, y, z] = idx;
+            self.inner.get(x)?.get(y)?.get(z)
+        }
+
+        #[inline]
+        fn ls_get_mut(&mut self, idx: [usize; 3]) -> Option<&mut <Self as Volume>::Item> {
+            let [x, y, z] = idx;
+            self.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
         }
     }
 
@@ -276,29 +255,34 @@ pub(crate) mod stack_volume {
         for StackVolume<X, Y, Z, T>
     {
         #[inline]
-        fn access(this: &Self, idx: Idx) -> Option<&Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-            this.inner.get(x)?.get(y)?.get(z)
+        fn get(this: &Self, idx: Idx) -> Option<&Self::Item> {
+            this.ls_get(idx.array::<usize>()?)
         }
-    }
 
-    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> VolumeMutAccess<Idx>
-        for StackVolume<X, Y, Z, T>
-    {
         #[inline]
-        fn access_mut(this: &mut Self, idx: Idx) -> Option<&mut Self::Item> {
-            let [x, y, z] = idx.array::<usize>()?;
-            this.inner.get_mut(x)?.get_mut(y)?.get_mut(z)
+        fn set(this: &mut Self, idx: Idx, item: Self::Item) {
+            if let Some(slot) = idx.array::<usize>().and_then(|i| this.ls_get_mut(i)) {
+                *slot = item;
+            }
         }
-    }
 
-    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> VolumeSwapper<Idx>
-        for StackVolume<X, Y, Z, T>
-    {
         #[inline]
         fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<Self::Item> {
-            let slot = this.get_mut(idx)?;
-            Some(std::mem::replace(slot, item))
+            use std::mem::replace;
+
+            let slot = this.ls_get_mut(idx.array::<usize>()?)?;
+            Some(replace(slot, item))
+        }
+
+        #[inline]
+        fn contains(_this: &Self, idx: Idx) -> bool {
+            if let Some([x, y, z]) = idx.array::<usize>() {
+                x < X
+                && y < Y
+                && z < Z
+            } else {
+                false
+            }
         }
     }
 
@@ -313,21 +297,7 @@ pub(crate) mod stack_volume {
         }
     }
 
-    impl<const X: usize, const Y: usize, const Z: usize, T, Idx: VolumeIdx> std::ops::IndexMut<Idx>
-        for StackVolume<X, Y, Z, T>
-    {
-        #[inline]
-        fn index_mut(&mut self, idx: Idx) -> &mut Self::Output {
-            self.get_mut(idx).unwrap()
-        }
-    }
-
     impl<const X: usize, const Y: usize, const Z: usize, T> Volume for StackVolume<X, Y, Z, T> {
         type Item = T;
-
-        #[inline]
-        fn bounding_box(&self) -> BoundingBox {
-            BoundingBox::new([0; 3], [X, Y, Z])
-        }
     }
 }

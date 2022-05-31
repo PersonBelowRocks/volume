@@ -11,16 +11,6 @@ macro_rules! impl_indexing {
                 self.get(idx).unwrap()
             }
         }
-
-        impl<$param, Idx: crate::traits::VolumeIdx> std::ops::IndexMut<Idx> for $tgt
-        where
-            $tgt: crate::traits::Volume,
-        {
-            #[inline(always)]
-            fn index_mut(&mut self, idx: Idx) -> &mut Self::Output {
-                self.get_mut(idx).unwrap()
-            }
-        }
     };
 }
 
