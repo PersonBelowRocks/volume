@@ -93,10 +93,8 @@ pub(crate) mod heap_volume {
 
         #[inline]
         fn contains(this: &Self, idx: Idx) -> bool {
-            if let Some([x, y, z]) = idx.array::<usize>() {    
-                x < this.inner.len()
-                && y < this.inner[0].len()
-                && z < this.inner[0][0].len()
+            if let Some([x, y, z]) = idx.array::<usize>() {
+                x < this.inner.len() && y < this.inner[0].len() && z < this.inner[0][0].len()
             } else {
                 false
             }
@@ -111,18 +109,15 @@ pub(crate) mod heap_volume {
         fn to_ls(self, b: BoundingBox) -> Option<Idx> {
             use util::sub_ivec3;
 
-            let [x, y, z] = sub_ivec3(
-                self.0.array::<i64>()?,
-                b.min()
-            );
+            let [x, y, z] = sub_ivec3(self.0.array::<i64>()?, b.min());
 
             Some(Idx::from_xyz(x, y, z))
         }
     }
 
-    impl<T, Idx: VolumeIdx> VolumeAccess<Worldspace<Idx>> for HeapVolume<T> 
-    where 
-        Self: VolumeAccess<Idx>
+    impl<T, Idx: VolumeIdx> VolumeAccess<Worldspace<Idx>> for HeapVolume<T>
+    where
+        Self: VolumeAccess<Idx>,
     {
         #[inline]
         fn get(this: &Self, idx: Worldspace<Idx>) -> Option<&Self::Item> {
@@ -198,6 +193,13 @@ pub(crate) mod stack_volume {
             Self {
                 inner: [[[item; Z]; Y]; X],
             }
+        }
+    }
+
+    impl<const X: usize, const Y: usize, const Z: usize, T: Clone> Clone for StackVolume<X, Y, Z, T> {
+        #[inline]
+        fn clone(&self) -> Self {
+            self.inner.clone().into()
         }
     }
 
@@ -277,9 +279,7 @@ pub(crate) mod stack_volume {
         #[inline]
         fn contains(_this: &Self, idx: Idx) -> bool {
             if let Some([x, y, z]) = idx.array::<usize>() {
-                x < X
-                && y < Y
-                && z < Z
+                x < X && y < Y && z < Z
             } else {
                 false
             }

@@ -26,7 +26,7 @@ pub trait VolumeGet<Idx>: Volume {
 
 impl<T, I> VolumeGet<I> for T
 where
-    T: VolumeAccess<I>
+    T: VolumeAccess<I>,
 {
     #[inline]
     fn get(this: &Self, idx: I) -> Option<&Self::Item> {
@@ -38,10 +38,9 @@ pub trait VolumeSet<Idx>: Volume {
     fn set(this: &mut Self, idx: Idx, item: Self::Item);
 }
 
-
 impl<T, I> VolumeSet<I> for T
 where
-    T: VolumeAccess<I>
+    T: VolumeAccess<I>,
 {
     #[inline]
     fn set(this: &mut Self, idx: I, item: Self::Item) {
@@ -53,10 +52,9 @@ pub trait VolumeSwap<Idx>: Volume {
     fn swap(this: &mut Self, idx: Idx, item: Self::Item) -> Option<Self::Item>;
 }
 
-
 impl<T, I> VolumeSwap<I> for T
 where
-    T: VolumeAccess<I>
+    T: VolumeAccess<I>,
 {
     #[inline]
     fn swap(this: &mut Self, idx: I, item: Self::Item) -> Option<Self::Item> {
@@ -68,10 +66,9 @@ pub trait VolumeContains<Idx>: Volume {
     fn contains(this: &Self, idx: Idx) -> bool;
 }
 
-
 impl<T, I> VolumeContains<I> for T
 where
-    T: VolumeAccess<I>
+    T: VolumeAccess<I>,
 {
     #[inline]
     fn contains(this: &Self, idx: I) -> bool {
@@ -112,9 +109,9 @@ pub trait Volume: Sized {
     }
 
     #[inline]
-    fn contains<Idx>(&self, idx: Idx) -> bool 
+    fn contains<Idx>(&self, idx: Idx) -> bool
     where
-        Self: VolumeContains<Idx>
+        Self: VolumeContains<Idx>,
     {
         <Self as VolumeContains<Idx>>::contains(self, idx)
     }
