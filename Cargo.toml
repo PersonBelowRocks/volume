@@ -3,14 +3,7 @@ name = "volume"
 version = "0.2.0"
 edition = "2021"
 
-[features]
-default = ["nalgebra", "glam"]
-nalgebra = ["dep:nalgebra"]
-glam = ["dep:glam"]
-
 [dependencies]
+nalgebra = "0.31.0"
 num-traits = "0.2.15"
 thiserror = "1.0.31"
-
-nalgebra = {version = "0.31", optional = true}
-glam = {version = "0.20", optional = true}
