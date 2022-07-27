@@ -1,106 +1,192 @@
+use std::ops::Range;
+
+extern crate nalgebra as na;
 extern crate thiserror as te;
 
-#[macro_use]
-mod macros;
+mod error;
+mod impls;
+pub use error::*;
 
 #[cfg(test)]
 mod tests;
 
-mod impls;
-pub mod prelude;
-pub mod traits;
-pub mod types;
-mod util;
+pub type Idx = na::Vector3<i64>;
 
-#[cfg(feature = "nalgebra")]
-pub use nalgebra_support::*;
+#[derive(Copy, Clone, Debug)]
+pub struct BoundingBox {
+    pub pos1: Idx,
+    pub pos2: Idx,
+}
 
-#[cfg(feature = "nalgebra")]
-mod nalgebra_support {
-    extern crate nalgebra as na;
+impl BoundingBox {
+    pub fn min(&self) -> Idx {
+        use std::cmp::min;
 
-    use crate::prelude::*;
-    use num_traits::{NumCast, PrimInt};
-
-    impl<N: PrimInt> VolumeIdx for na::Vector3<N> {
-        #[inline]
-        fn array<T: NumCast>(self) -> Option<[T; 3]> {
-            Some([
-                <T as NumCast>::from(self[0])?,
-                <T as NumCast>::from(self[1])?,
-                <T as NumCast>::from(self[2])?,
-            ])
-        }
-
-        #[inline]
-        fn from_xyz<T: PrimInt>(x: T, y: T, z: T) -> Self {
-            Self::new(
-                <N as NumCast>::from(x).unwrap(),
-                <N as NumCast>::from(y).unwrap(),
-                <N as NumCast>::from(z).unwrap(),
-            )
-        }
+        [
+            min(self.pos1.x, self.pos2.x),
+            min(self.pos1.y, self.pos2.y),
+            min(self.pos1.z, self.pos2.z),
+        ]
+        .into()
     }
 
-    impl_boundingbox_from_na_vec_range!(i8, u8, i16, u16, i32, u32, i64);
+    pub fn max(&self) -> Idx {
+        use std::cmp::max;
 
-    impl From<BoundingBox> for std::ops::Range<na::Vector3<i64>> {
-        #[inline(always)]
-        fn from(bb: BoundingBox) -> Self {
-            na::Vector3::<i64>::from(bb.min())..na::Vector3::<i64>::from(bb.max())
+        [
+            max(self.pos1.x, self.pos2.x),
+            max(self.pos1.y, self.pos2.y),
+            max(self.pos1.z, self.pos2.z),
+        ]
+        .into()
+    }
+
+    pub fn contains(&self, idx: Idx) -> bool {
+        let min = self.min();
+        let max = self.max();
+
+        (min.x..max.x).contains(&idx.x)
+            && (min.y..max.y).contains(&idx.y)
+            && (min.z..max.z).contains(&idx.z)
+    }
+}
+
+impl std::fmt::Display for BoundingBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.pos1, self.pos2)
+    }
+}
+
+impl From<Range<na::Vector3<i64>>> for BoundingBox {
+    fn from(range: Range<na::Vector3<i64>>) -> Self {
+        Self {
+            pos1: range.start,
+            pos2: range.end,
         }
     }
 }
 
-#[cfg(feature = "glam")]
-pub use glam_support::*;
+pub trait Volume: Sized {
+    type Input;
+    type Output;
 
-#[cfg(feature = "glam")]
-mod glam_support {
-    extern crate glam;
+    fn set(&mut self, idx: Idx, item: Self::Input) -> bool;
 
-    use crate::prelude::*;
-    use num_traits::{NumCast, PrimInt};
+    fn get(&self, idx: Idx) -> Self::Output;
 
-    impl VolumeIdx for glam::IVec3 {
-        #[inline]
-        fn array<T: NumCast>(self) -> Option<[T; 3]> {
-            Some([
-                <T as NumCast>::from(self[0])?,
-                <T as NumCast>::from(self[1])?,
-                <T as NumCast>::from(self[2])?,
-            ])
-        }
+    fn bounding_box(&self) -> BoundingBox;
 
-        #[inline]
-        fn from_xyz<N: PrimInt>(x: N, y: N, z: N) -> Self {
-            Self::new(
-                <i32 as NumCast>::from(x).unwrap(),
-                <i32 as NumCast>::from(y).unwrap(),
-                <i32 as NumCast>::from(z).unwrap(),
-            )
+    fn contains(&self, idx: Idx) -> bool {
+        self.bounding_box().contains(idx)
+    }
+
+    #[inline]
+    fn apply<F, T, G>(&mut self, f: F)
+    where
+        F: Fn(Idx, Self::Output) -> Option<Self::Input>,
+    {
+        let min = self.bounding_box().min();
+        let max = self.bounding_box().max();
+
+        let iterator = (min.x..max.x).flat_map(|x| {
+            (min.y..max.y).flat_map(move |y| (min.z..max.z).map(move |z| na::vector![x, y, z]))
+        });
+
+        for idx in iterator {
+            let input = self.get(idx);
+            if let Some(output) = f(idx, input) {
+                self.set(idx, output);
+            }
         }
     }
 
-    impl VolumeIdx for glam::UVec3 {
-        #[inline]
-        fn array<T: NumCast>(self) -> Option<[T; 3]> {
-            Some([
-                <T as NumCast>::from(self[0])?,
-                <T as NumCast>::from(self[1])?,
-                <T as NumCast>::from(self[2])?,
-            ])
-        }
+    #[inline]
+    fn idx_apply<F>(&mut self, f: F)
+    where
+        F: Fn(Idx) -> Option<Self::Input>,
+    {
+        let min = self.bounding_box().min();
+        let max = self.bounding_box().max();
 
-        #[inline]
-        fn from_xyz<T: PrimInt>(x: T, y: T, z: T) -> Self {
-            Self::new(
-                <u32 as NumCast>::from(x).unwrap(),
-                <u32 as NumCast>::from(y).unwrap(),
-                <u32 as NumCast>::from(z).unwrap(),
-            )
+        let iterator = (min.x..max.x).flat_map(|x| {
+            (min.y..max.y).flat_map(move |y| (min.z..max.z).map(move |z| na::vector![x, y, z]))
+        });
+
+        for idx in iterator {
+            if let Some(output) = f(idx) {
+                self.set(idx, output);
+            }
         }
     }
 
-    impl_boundingbox_from_glam_vec_range!(glam::IVec3, glam::UVec3);
+    #[inline]
+    fn fill<Idx, B, T>(&mut self, item: Self::Input)
+    where
+        Self::Input: Copy,
+    {
+        self.idx_apply(|_| Some(item));
+    }
+}
+
+pub struct Subvolume<'a, Vol: Volume>
+where
+    Vol: Volume,
+{
+    bounds: BoundingBox,
+    vol: &'a mut Vol,
+}
+
+impl<'a, Vol> Subvolume<'a, Vol>
+where
+    Vol: Volume,
+{
+    pub fn new(vol: &'a mut Vol, bounds: BoundingBox) -> Result<Self, OversizedBounds> {
+        if vol.contains(bounds.min()) && vol.contains(bounds.max()) {
+            Ok(Self { bounds, vol })
+        } else {
+            Err(OversizedBounds {
+                provided: bounds,
+                expected: Some(vol.bounding_box()),
+            })
+        }
+    }
+
+    pub fn resize(self, bounds: BoundingBox) -> Result<Self, OversizedBounds> {
+        if self.vol.contains(bounds.max()) && self.vol.contains(bounds.min()) {
+            Ok(Self {
+                bounds,
+                vol: self.vol,
+            })
+        } else {
+            Err(OversizedBounds {
+                provided: bounds,
+                expected: Some(self.vol.bounding_box()),
+            })
+        }
+    }
+}
+
+impl<'a, Vol> Volume for Subvolume<'a, Vol>
+where
+    Vol: Volume,
+{
+    type Input = Vol::Input;
+
+    type Output = Option<Vol::Output>;
+
+    fn set(&mut self, idx: Idx, item: Self::Input) -> bool {
+        if self.bounds.contains(idx) {
+            self.vol.set(idx, item)
+        } else {
+            false
+        }
+    }
+
+    fn get(&self, idx: Idx) -> Self::Output {
+        self.bounds.contains(idx).then_some(self.vol.get(idx))
+    }
+
+    fn bounding_box(&self) -> BoundingBox {
+        self.bounds
+    }
 }
