@@ -10,6 +10,10 @@ pub use error::*;
 #[cfg(test)]
 mod tests;
 
+pub mod prelude {
+    pub use crate::{BoundingBox, Idx, OversizedBounds, Subvolume, Volume};
+}
+
 pub type Idx = na::Vector3<i64>;
 
 #[derive(Copy, Clone, Debug)]
