@@ -16,7 +16,7 @@ pub mod prelude {
 
 pub type Idx = na::Vector3<i64>;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BoundingBox {
     pub pos1: Idx,
     pub pos2: Idx,
